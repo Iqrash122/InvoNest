@@ -1,21 +1,15 @@
-import { useEffect, useState } from 'react';
 import { useColorScheme as useRNColorScheme } from 'react-native';
+import { useData } from '@/context/DataContext';
 
-/**
- * To support static rendering, this value needs to be re-calculated on the client side for web
- */
 export function useColorScheme() {
-  const [hasHydrated, setHasHydrated] = useState(false);
-
-  useEffect(() => {
-    setHasHydrated(true);
-  }, []);
-
-  const colorScheme = useRNColorScheme();
-
-  if (hasHydrated) {
-    return colorScheme;
+  const systemScheme = useRNColorScheme();
+  try {
+    const data = useData();
+    if (data && data.themeMode) {
+      return data.themeMode === 'system' ? systemScheme : data.themeMode;
+    }
+  } catch (e) {
+    // Fallback if called outside DataProvider context
   }
-
-  return 'light';
+  return systemScheme;
 }

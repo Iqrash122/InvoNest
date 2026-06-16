@@ -1,62 +1,108 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
+import React, { useEffect, useState } from 'react';
+import { StyleSheet, ActivityIndicator, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useAuth } from '@/context/AuthContext';
+import { useData } from '@/context/DataContext';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { Button } from '@/components/ui/button';
+import { AnimatedIcon } from '@/components/animated-icon';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Spacing } from '@/constants/theme';
+import { Lock } from 'lucide-react-native';
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
+export default function Index() {
+  const router = useRouter();
+  const { user, isLoading: authLoading, isBiometricEnabled, triggerBiometricUnlock } = useAuth();
+  const { businessProfile } = useData();
+  const [isUnlocked, setIsUnlocked] = useState(false);
+  const [checkingNavigation, setCheckingNavigation] = useState(true);
+
+  // Authenticate user if biometric lock is active, then proceed
+  useEffect(() => {
+    if (authLoading) return;
+
+    async function checkAuthAndNavigate() {
+      try {
+        if (!user) {
+          // Check if onboarding is completed
+          const onboarded = await AsyncStorage.getItem('@invonest_onboarded');
+          if (onboarded === 'true') {
+            router.replace('/(auth)/login');
+          } else {
+            router.replace('/(auth)/onboarding');
+          }
+          return;
+        }
+
+        // User is logged in
+        if (isBiometricEnabled && !isUnlocked) {
+          const success = await triggerBiometricUnlock();
+          if (success) {
+            setIsUnlocked(true);
+          } else {
+            setCheckingNavigation(false);
+            return; // Stay on splash screen with unlock button
+          }
+        } else {
+          setIsUnlocked(true);
+        }
+
+        // Wait a small timeout to let DataContext load states
+        setTimeout(() => {
+          if (businessProfile && businessProfile.name && businessProfile.name !== 'My Business') {
+            router.replace('/(tabs)/dashboard');
+          } else {
+            router.replace('/business-setup');
+          }
+        }, 100);
+      } catch (err) {
+        console.error('Error during index navigation logic:', err);
+      }
+    }
+
+    checkAuthAndNavigate();
+  }, [user, authLoading, isUnlocked, isBiometricEnabled, businessProfile]);
+
+  const handleManualUnlock = async () => {
+    const success = await triggerBiometricUnlock();
+    if (success) {
+      setIsUnlocked(true);
+    }
+  };
+
+  if (authLoading || (user && isBiometricEnabled && !isUnlocked && checkingNavigation)) {
     return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
+      <ThemedView style={styles.container}>
+        <AnimatedIcon />
+        <ActivityIndicator size="large" color="#208AEF" style={styles.loader} />
+      </ThemedView>
     );
   }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
-  return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
 
-export default function HomeScreen() {
+  // Show "App is Locked" screen with unlock action if biometrics prompt was canceled
+  if (user && isBiometricEnabled && !isUnlocked) {
+    return (
+      <ThemedView style={styles.container}>
+        <View style={styles.lockIconContainer}>
+          <Lock size={64} color="#208AEF" />
+        </View>
+        <ThemedText type="subtitle" style={styles.title}>InvoNest is Locked</ThemedText>
+        <ThemedText style={styles.subtitle} themeColor="textSecondary">
+          Authenticate to access your invoices and clients.
+        </ThemedText>
+        <Button 
+          title="Unlock with Biometrics" 
+          onPress={handleManualUnlock}
+          style={styles.unlockButton}
+        />
+      </ThemedView>
+    );
+  }
+
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
-
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
-
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
-
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
+      <AnimatedIcon />
     </ThemedView>
   );
 }
@@ -64,35 +110,32 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
-  },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
-  },
-  heroSection: {
     alignItems: 'center',
     justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
+    padding: Spacing.four,
+  },
+  loader: {
+    marginTop: Spacing.four,
+  },
+  lockIconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#E6F4FE',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.four,
   },
   title: {
+    marginBottom: Spacing.one,
     textAlign: 'center',
   },
-  code: {
-    textTransform: 'uppercase',
+  subtitle: {
+    textAlign: 'center',
+    marginBottom: Spacing.five,
+    paddingHorizontal: Spacing.four,
   },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
+  unlockButton: {
+    width: '80%',
   },
 });

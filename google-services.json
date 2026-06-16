@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1087695906420",
+    "project_id": "invonest-41edb",
+    "storage_bucket": "invonest-41edb.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1087695906420:android:51ffddac93a925b951d321",
+        "android_client_info": {
+          "package_name": "com.invonest.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDLUY9yShRb5T0PnVghaxt-qgeNwvnoiMo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
