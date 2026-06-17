@@ -6,6 +6,7 @@ import { Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { useTheme } from '@/hooks/use-theme';
+import { previewVoiceReminder, stopSpeech } from '@/utils/voiceReminder';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
@@ -20,7 +21,7 @@ import {
   Settings as SettingsIcon,
   Sun
 } from 'lucide-react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Modal, Platform, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -42,7 +43,15 @@ export default function Settings() {
   const [remindDaysBefore, setRemindDaysBefore] = useState(String(businessProfile?.reminderDaysBefore || '3'));
   const [repeatOnOverdue, setRepeatOnOverdue] = useState(businessProfile?.reminderRepeatOnOverdue !== undefined ? businessProfile.reminderRepeatOnOverdue : true);
   const [voiceRemindersOn, setVoiceRemindersOn] = useState(false);
+  const [isVoicePreviewing, setIsVoicePreviewing] = useState(false);
   const [isLogoutModalVisible, setIsLogoutModalVisible] = useState(false);
+
+  // Sync voice reminder toggle when businessProfile loads asynchronously from storage
+  useEffect(() => {
+    if (businessProfile) {
+      setVoiceRemindersOn(businessProfile.voiceRemindersEnabled ?? false);
+    }
+  }, [businessProfile?.voiceRemindersEnabled]);
 
   const handleBiometricToggle = async (val: boolean) => {
     setBiometricsOn(val);
@@ -70,6 +79,29 @@ export default function Settings() {
         ...businessProfile,
         reminderRepeatOnOverdue: val
       });
+    }
+  };
+
+  const handleVoiceReminderToggle = async (val: boolean) => {
+    setVoiceRemindersOn(val);
+    if (!val) {
+      await stopSpeech();
+    }
+    if (businessProfile) {
+      await saveBusinessProfile({
+        ...businessProfile,
+        voiceRemindersEnabled: val
+      });
+    }
+  };
+
+  const handlePreviewVoice = async () => {
+    if (isVoicePreviewing) return;
+    setIsVoicePreviewing(true);
+    try {
+      await previewVoiceReminder();
+    } finally {
+      setTimeout(() => setIsVoicePreviewing(false), 3500);
     }
   };
 
@@ -237,22 +269,56 @@ export default function Settings() {
             />
           </View>
 
-          <View style={[styles.settingSeparator, { backgroundColor: theme.border }]} />
+          {/* <View style={[styles.settingSeparator, { backgroundColor: theme.border }]} /> */}
 
-          <View style={styles.settingRow}>
+          {/* <View style={styles.settingRow}>
             <View style={styles.rowLeft}>
-              <BellRing size={20} color="#8B5CF6" style={styles.iconMargin} />
+              {voiceRemindersOn
+                ? <Volume2 size={20} color="#8B5CF6" style={styles.iconMargin} />
+                : <VolumeX size={20} color={theme.textSecondary} style={styles.iconMargin} />
+              }
               <View style={{ flex: 1, marginRight: Spacing.two }}>
                 <Text style={[styles.settingLabel, { color: theme.text }]}>Voice Reminders</Text>
-                <Text style={[styles.settingDesc, { color: theme.textSecondary }]}>Receive audible text-to-speech alerts</Text>
+                <Text style={[styles.settingDesc, { color: theme.textSecondary }]}>
+                  {voiceRemindersOn ? 'Audible TTS alerts are active' : 'Receive audible text-to-speech alerts'}
+                </Text>
               </View>
             </View>
             <Switch
               value={voiceRemindersOn}
-              onValueChange={setVoiceRemindersOn}
-              trackColor={{ true: '#208AEF', false: '#D1D5DB' }}
+              onValueChange={handleVoiceReminderToggle}
+              trackColor={{ true: '#8B5CF6', false: '#D1D5DB' }}
+              thumbColor={voiceRemindersOn ? '#FFFFFF' : '#F4F4F4'}
             />
-          </View>
+          </View> */}
+
+          {/* {voiceRemindersOn && (
+            <>
+              <View style={[styles.settingSeparator, { backgroundColor: theme.border }]} />
+              <View style={[styles.settingRow, { paddingVertical: Spacing.two }]}>
+                <View style={styles.rowLeft}>
+                  <View style={{ flex: 1, marginLeft: 36 }}>
+                    <Text style={[styles.settingDesc, { color: theme.textSecondary, fontSize: 11 }]}>
+                      Tap to hear a sample voice alert
+                    </Text>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  onPress={handlePreviewVoice}
+                  disabled={isVoicePreviewing}
+                  style={[
+                    styles.previewVoiceBtn,
+                    { backgroundColor: isVoicePreviewing ? '#6D28D9' : '#8B5CF6', opacity: isVoicePreviewing ? 0.75 : 1 }
+                  ]}
+                >
+                  <Volume2 size={13} color="#FFF" style={{ marginRight: 4 }} />
+                  <Text style={styles.previewVoiceBtnText}>
+                    {isVoicePreviewing ? 'Speaking…' : 'Test Voice'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )} */}
         </Card>
 
         {/* Logout Button */}
@@ -395,6 +461,23 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderRadius: 12,
+  },
+  previewVoiceBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  previewVoiceBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
   },
   logoutBtn: {
     marginTop: Spacing.four,

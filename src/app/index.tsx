@@ -14,13 +14,13 @@ import { Lock } from 'lucide-react-native';
 export default function Index() {
   const router = useRouter();
   const { user, isLoading: authLoading, isBiometricEnabled, triggerBiometricUnlock } = useAuth();
-  const { businessProfile } = useData();
+  const { businessProfile, isLoading: dataLoading } = useData();
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [checkingNavigation, setCheckingNavigation] = useState(true);
 
   // Authenticate user if biometric lock is active, then proceed
   useEffect(() => {
-    if (authLoading) return;
+    if (authLoading || dataLoading) return;
 
     async function checkAuthAndNavigate() {
       try {
@@ -48,21 +48,19 @@ export default function Index() {
           setIsUnlocked(true);
         }
 
-        // Wait a small timeout to let DataContext load states
-        setTimeout(() => {
-          if (businessProfile && businessProfile.name && businessProfile.name !== 'My Business') {
-            router.replace('/(tabs)/dashboard');
-          } else {
-            router.replace('/business-setup');
-          }
-        }, 100);
+        // Navigate immediately since DataContext has finished loading states
+        if (businessProfile && businessProfile.name && businessProfile.name !== 'My Business') {
+          router.replace('/(tabs)/dashboard');
+        } else {
+          router.replace('/business-setup');
+        }
       } catch (err) {
         console.error('Error during index navigation logic:', err);
       }
     }
 
     checkAuthAndNavigate();
-  }, [user, authLoading, isUnlocked, isBiometricEnabled, businessProfile]);
+  }, [user, authLoading, dataLoading, isUnlocked, isBiometricEnabled, businessProfile]);
 
   const handleManualUnlock = async () => {
     const success = await triggerBiometricUnlock();
@@ -71,7 +69,7 @@ export default function Index() {
     }
   };
 
-  if (authLoading || (user && isBiometricEnabled && !isUnlocked && checkingNavigation)) {
+  if (authLoading || dataLoading || (user && isBiometricEnabled && !isUnlocked && checkingNavigation)) {
     return (
       <ThemedView style={styles.container}>
         <AnimatedIcon />

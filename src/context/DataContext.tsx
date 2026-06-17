@@ -10,6 +10,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from './AuthContext';
 import { scheduleInvoiceReminder, cancelInvoiceReminders } from '@/utils/notifications';
+import { announceInvoiceReminder } from '@/utils/voiceReminder';
 
 export interface Client {
   id: string;
@@ -93,6 +94,7 @@ export interface BusinessProfile {
   defaultTemplate?: 'classic' | 'modern' | 'minimal';
   reminderDaysBefore?: number;
   reminderRepeatOnOverdue?: boolean;
+  voiceRemindersEnabled?: boolean;
 }
 
 interface DataContextType {
@@ -122,7 +124,7 @@ interface DataContextType {
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   
   const [clients, setClients] = useState<Client[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -133,41 +135,107 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [themeMode, setThemeModeState] = useState<'light' | 'dark' | 'system'>('system');
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load from local storage initially
-  useEffect(() => {
-    async function loadLocalData() {
-      try {
-        const cVal = await AsyncStorage.getItem('@invonest_clients');
-        const pVal = await AsyncStorage.getItem('@invonest_products');
-        const iVal = await AsyncStorage.getItem('@invonest_invoices');
-        const eVal = await AsyncStorage.getItem('@invonest_estimates');
-        const payVal = await AsyncStorage.getItem('@invonest_payments');
-        const profVal = await AsyncStorage.getItem('@invonest_profile');
+  const getNamespacedKey = (key: string) => {
+    return user ? `${key}_${user.uid}` : `${key}_guest`;
+  };
 
+  // Load global theme setting on mount
+  useEffect(() => {
+    async function loadTheme() {
+      try {
         const themeVal = await AsyncStorage.getItem('@invonest_theme');
         if (themeVal) {
           setThemeModeState(themeVal as 'light' | 'dark' | 'system');
         }
+      } catch (err) {
+        console.error('Error loading theme:', err);
+      }
+    }
+    loadTheme();
+  }, []);
+
+  // Load user data namespaced by UID, with optional legacy migration
+  useEffect(() => {
+    if (authLoading) return;
+
+    async function loadLocalData() {
+      setIsLoading(true);
+      try {
+        if (!user) {
+          // No user logged in, clear active data state
+          setClients([]);
+          setProducts([]);
+          setInvoices([]);
+          setEstimates([]);
+          setPayments([]);
+          setBusinessProfile(null);
+          return;
+        }
+
+        const uid = user.uid;
+
+        // Perform legacy data migration to namespaced keys if needed (one-time check)
+        const migrationCheckKey = `@invonest_migrated_to_${uid}`;
+        const alreadyMigrated = await AsyncStorage.getItem(migrationCheckKey);
+
+        if (!alreadyMigrated) {
+          const keysToMigrate = [
+            { oldKey: '@invonest_clients', newKey: `@invonest_clients_${uid}` },
+            { oldKey: '@invonest_products', newKey: `@invonest_products_${uid}` },
+            { oldKey: '@invonest_invoices', newKey: `@invonest_invoices_${uid}` },
+            { oldKey: '@invonest_estimates', newKey: `@invonest_estimates_${uid}` },
+            { oldKey: '@invonest_payments', newKey: `@invonest_payments_${uid}` },
+            { oldKey: '@invonest_profile', newKey: `@invonest_profile_${uid}` },
+          ];
+
+          for (const { oldKey, newKey } of keysToMigrate) {
+            const oldValue = await AsyncStorage.getItem(oldKey);
+            if (oldValue) {
+              await AsyncStorage.setItem(newKey, oldValue);
+              await AsyncStorage.removeItem(oldKey);
+            }
+          }
+          await AsyncStorage.setItem(migrationCheckKey, 'true');
+        }
+
+        // Load namespaced data
+        const cVal = await AsyncStorage.getItem(`@invonest_clients_${uid}`);
+        const pVal = await AsyncStorage.getItem(`@invonest_products_${uid}`);
+        const iVal = await AsyncStorage.getItem(`@invonest_invoices_${uid}`);
+        const eVal = await AsyncStorage.getItem(`@invonest_estimates_${uid}`);
+        const payVal = await AsyncStorage.getItem(`@invonest_payments_${uid}`);
+        const profVal = await AsyncStorage.getItem(`@invonest_profile_${uid}`);
 
         if (cVal) setClients(JSON.parse(cVal).filter((c: any) => c && c.id));
+        else setClients([]);
+
         if (pVal) setProducts(JSON.parse(pVal).filter((p: any) => p && p.id));
+        else setProducts([]);
+
         if (iVal) setInvoices(JSON.parse(iVal).filter((i: any) => i && i.id));
+        else setInvoices([]);
+
         if (eVal) setEstimates(JSON.parse(eVal).filter((e: any) => e && e.id));
+        else setEstimates([]);
+
         if (payVal) setPayments(JSON.parse(payVal).filter((p: any) => p && p.id));
+        else setPayments([]);
+
         if (profVal) {
           setBusinessProfile(JSON.parse(profVal));
         } else {
-          // Initialize default business profile
+          // Initialize default business profile for this user
           const defaultProf: BusinessProfile = {
             name: 'My Business',
             currency: 'USD',
             defaultTaxRate: 0,
             defaultTemplate: 'classic',
             reminderDaysBefore: 3,
-            reminderRepeatOnOverdue: true
+            reminderRepeatOnOverdue: true,
+            voiceRemindersEnabled: false
           };
           setBusinessProfile(defaultProf);
-          await AsyncStorage.setItem('@invonest_profile', JSON.stringify(defaultProf));
+          await AsyncStorage.setItem(`@invonest_profile_${uid}`, JSON.stringify(defaultProf));
         }
       } catch (err) {
         console.error('Error loading offline cache:', err);
@@ -177,7 +245,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
 
     loadLocalData();
-  }, []);
+  }, [user, authLoading]);
 
   const [isSyncingOffline, setIsSyncingOffline] = useState(false);
 
@@ -253,38 +321,38 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const unsubClients = onSnapshot(collection(db, `users/${uid}/clients`), (snap) => {
       const items = snap.docs.map(doc => ({ ...doc.data(), id: doc.id })) as Client[];
       setClients(items);
-      AsyncStorage.setItem('@invonest_clients', JSON.stringify(items));
+      AsyncStorage.setItem(`@invonest_clients_${uid}`, JSON.stringify(items));
     });
 
     const unsubProducts = onSnapshot(collection(db, `users/${uid}/products`), (snap) => {
       const items = snap.docs.map(doc => ({ ...doc.data(), id: doc.id })) as Product[];
       setProducts(items);
-      AsyncStorage.setItem('@invonest_products', JSON.stringify(items));
+      AsyncStorage.setItem(`@invonest_products_${uid}`, JSON.stringify(items));
     });
 
     const unsubInvoices = onSnapshot(collection(db, `users/${uid}/invoices`), (snap) => {
       const items = snap.docs.map(doc => ({ ...doc.data(), id: doc.id })) as Invoice[];
       setInvoices(items);
-      AsyncStorage.setItem('@invonest_invoices', JSON.stringify(items));
+      AsyncStorage.setItem(`@invonest_invoices_${uid}`, JSON.stringify(items));
     });
 
     const unsubEstimates = onSnapshot(collection(db, `users/${uid}/estimates`), (snap) => {
       const items = snap.docs.map(doc => ({ ...doc.data(), id: doc.id })) as Estimate[];
       setEstimates(items);
-      AsyncStorage.setItem('@invonest_estimates', JSON.stringify(items));
+      AsyncStorage.setItem(`@invonest_estimates_${uid}`, JSON.stringify(items));
     });
 
     const unsubPayments = onSnapshot(collection(db, `users/${uid}/payments`), (snap) => {
       const items = snap.docs.map(doc => ({ ...doc.data(), id: doc.id })) as Payment[];
       setPayments(items);
-      AsyncStorage.setItem('@invonest_payments', JSON.stringify(items));
+      AsyncStorage.setItem(`@invonest_payments_${uid}`, JSON.stringify(items));
     });
 
     const unsubProfile = onSnapshot(doc(db, `users/${uid}/profile/business`), (snap) => {
       if (snap.exists()) {
         const item = snap.data() as BusinessProfile;
         setBusinessProfile(item);
-        AsyncStorage.setItem('@invonest_profile', JSON.stringify(item));
+        AsyncStorage.setItem(`@invonest_profile_${uid}`, JSON.stringify(item));
       }
     });
 
@@ -315,7 +383,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       : [...currentList, savedItem];
     
     setList(updatedList);
-    await AsyncStorage.setItem(localStorageKey, JSON.stringify(updatedList));
+    await AsyncStorage.setItem(getNamespacedKey(localStorageKey), JSON.stringify(updatedList));
 
     // Sync to Firestore if user logged in
     if (isConfigured && db && user) {
@@ -339,7 +407,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   ) => {
     const updatedList = currentList.filter(item => item.id !== id);
     setList(updatedList);
-    await AsyncStorage.setItem(localStorageKey, JSON.stringify(updatedList));
+    await AsyncStorage.setItem(getNamespacedKey(localStorageKey), JSON.stringify(updatedList));
 
     if (isConfigured && db && user) {
       try {
@@ -379,8 +447,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           saved.invoiceNumber,
           clientObj.name,
           new Date(saved.dueDate),
-          daysBefore
+          daysBefore,
+          user?.uid
         );
+        // Announce via TTS if voice reminders are enabled
+        if (businessProfile?.voiceRemindersEnabled) {
+          announceInvoiceReminder(
+            saved.invoiceNumber,
+            clientObj.name,
+            new Date(saved.dueDate),
+            daysBefore
+          );
+        }
       }
     } else if (saved.status === 'Paid') {
       await cancelInvoiceReminders(saved.id);
@@ -445,7 +523,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const saveBusinessProfile = async (profile: BusinessProfile) => {
     setBusinessProfile(profile);
-    await AsyncStorage.setItem('@invonest_profile', JSON.stringify(profile));
+    await AsyncStorage.setItem(getNamespacedKey('@invonest_profile'), JSON.stringify(profile));
 
     if (isConfigured && db && user) {
       try {

@@ -21,18 +21,41 @@ if (!isAndroidExpoGo) {
 if (Platform.OS !== 'web' && Notifications) {
   try {
     Notifications.setNotificationHandler({
-      handleNotification: async () => ({
-        shouldShowAlert: true,
-        shouldPlaySound: true,
-        shouldSetBadge: false,
-        shouldShowBanner: true,
-        shouldShowList: true,
-      }),
+      handleNotification: async (notification: any) => {
+        try {
+          const userStr = await AsyncStorage.getItem('@invonest_current_user');
+          if (userStr) {
+            const currentUser = JSON.parse(userStr);
+            const notifUid = notification.request.content.data?.uid;
+            // If the notification data has a uid and it doesn't match the logged-in user, suppress it
+            if (notifUid && currentUser?.uid && notifUid !== currentUser.uid) {
+              return {
+                shouldShowAlert: false,
+                shouldPlaySound: false,
+                shouldSetBadge: false,
+                shouldShowBanner: false,
+                shouldShowList: false,
+              };
+            }
+          }
+        } catch (e) {
+          console.warn('Error inside notification handler:', e);
+        }
+        return {
+          shouldShowAlert: true,
+          shouldPlaySound: true,
+          shouldSetBadge: false,
+          shouldShowBanner: true,
+          shouldShowList: true,
+        };
+      },
     });
   } catch (err) {
     console.warn('Failed to set notification handler:', err);
   }
 }
+
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export async function requestNotificationPermissions() {
   if (Platform.OS === 'web' || !Notifications) return false;
@@ -69,7 +92,8 @@ export async function scheduleInvoiceReminder(
   invoiceNumber: string,
   clientName: string,
   dueDate: Date,
-  reminderDaysBefore: number
+  reminderDaysBefore: number,
+  uid?: string
 ) {
   if (Platform.OS === 'web' || !Notifications) return null;
   try {
@@ -94,7 +118,7 @@ export async function scheduleInvoiceReminder(
       content: {
         title: `Invoice Due Soon: ${invoiceNumber}`,
         body: `Invoice for ${clientName} is due in ${reminderDaysBefore} day(s) on ${dueDate.toLocaleDateString()}.`,
-        data: { invoiceId, type: 'reminder' },
+        data: { invoiceId, type: 'reminder', uid },
       },
       trigger: triggerTime as any,
     });

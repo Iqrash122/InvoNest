@@ -66,7 +66,7 @@ export default function Invoices() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const theme = useTheme();
-  const { invoices, estimates, clients, businessProfile, themeMode } = useData();
+  const { invoices, estimates, clients, payments, businessProfile, themeMode } = useData();
   const [activeSegment, setActiveSegment] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -238,6 +238,14 @@ export default function Invoices() {
               : `Due: ${formatDate((item as Invoice).dueDate)}`;
             const isOverdue = !isEstimate && (item as Invoice).status === 'Overdue';
 
+            // Calculate paid & due amounts for invoices
+            const paidAmount = isEstimate
+              ? 0
+              : payments
+                  .filter((p) => p.invoiceId === item.id)
+                  .reduce((sum, p) => sum + p.amount, 0);
+            const dueAmount = isEstimate ? 0 : Math.max(0, item.total - paidAmount);
+
             return (
               <Pressable
                 key={item.id}
@@ -271,6 +279,18 @@ export default function Invoices() {
                         </Text>
                       </View>
                     </View>
+
+                    {!isEstimate && (
+                      <View style={styles.paymentStatusRow}>
+                        <Text style={[styles.paymentStatusText, { color: theme.textSecondary }]}>
+                          Paid: <Text style={{ color: '#10B981', fontWeight: '700' }}>{formatCurrency(paidAmount, currency)}</Text>
+                        </Text>
+                        <Text style={[styles.paymentStatusText, { color: theme.textSecondary }]}>
+                          Due: <Text style={{ color: dueAmount > 0 ? '#EF4444' : theme.textSecondary, fontWeight: '700' }}>{formatCurrency(dueAmount, currency)}</Text>
+                        </Text>
+                      </View>
+                    )}
+
                     <View style={styles.cardFootRow}>
                       <Text style={[styles.dateText, { color: theme.textSecondary }]}>
                         {formatDate(item.createdAt)}
@@ -393,6 +413,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 7, paddingVertical: 2, flexShrink: 0,
   },
   statusText: { fontSize: 9, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
+  paymentStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 2,
+    marginBottom: 2,
+  },
+  paymentStatusText: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
   cardFootRow: { flexDirection: 'row', justifyContent: 'space-between' },
   dateText: { fontSize: 11, fontWeight: '500' },
   overdueDateText: { color: '#EF4444', fontWeight: '700' },

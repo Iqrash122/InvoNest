@@ -187,7 +187,7 @@ export default function NotificationsCenter() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const theme = useTheme();
-  const { themeMode } = useData();
+  const { themeMode, invoices } = useData();
   const isDark = themeMode === 'dark';
   const [activeTab, setActiveTab] = useState<'scheduled' | 'history'>('scheduled');
   const [scheduled, setScheduled] = useState<ScheduledReminder[]>([]);
@@ -225,20 +225,25 @@ export default function NotificationsCenter() {
       }
       try {
         const list = await getAllScheduledReminders();
-        const mapped: ScheduledReminder[] = list.map((item: any) => ({
-          id: item.identifier,
-          title: item.content.title || 'Invoice Reminder',
-          body: item.content.body || '',
-          invoiceId: item.content.data?.invoiceId ? String(item.content.data.invoiceId) : undefined,
-          triggerType: (item.trigger as any)?.type || 'Calendar',
-        }));
+        const mapped: ScheduledReminder[] = list
+          .map((item: any) => ({
+            id: item.identifier,
+            title: item.content.title || 'Invoice Reminder',
+            body: item.content.body || '',
+            invoiceId: item.content.data?.invoiceId ? String(item.content.data.invoiceId) : undefined,
+            triggerType: (item.trigger as any)?.type || 'Calendar',
+          }))
+          .filter((item: any) => {
+            // Only show reminders for invoices belonging to the active user
+            return invoices.some((inv) => inv.id === item.invoiceId);
+          });
         setScheduled(mapped);
       } catch (err) {
         console.warn('Failed to load scheduled notifications:', err);
       }
     }
     loadNotifications();
-  }, []);
+  }, [invoices]);
 
   const handleCancelReminder = async (id: string) => {
     if (Platform.OS !== 'web') {
