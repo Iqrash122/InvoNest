@@ -19,7 +19,10 @@
         "foregroundImage": "./assets/images/logo/Logo.png",
         "monochromeImage": "./assets/images/logo/Logo.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "output": "static",
@@ -50,6 +53,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "00fbd466-f9d9-4f11-b43b-ecf4a608c7a6"
+      }
     }
   }
 }
