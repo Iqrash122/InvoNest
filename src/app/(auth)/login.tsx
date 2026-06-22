@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
+import { useResponsive } from '@/hooks/use-responsive';
 import { useRouter } from 'expo-router';
 import { Eye, EyeOff, Lock, LogIn, Mail, UserPlus } from 'lucide-react-native';
 import { useState } from 'react';
@@ -13,6 +14,7 @@ import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } fr
 export default function Login() {
   const router = useRouter();
   const { login, signup } = useAuth();
+  const { moderateScale, isSmallDevice } = useResponsive();
 
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [email, setEmail] = useState('');
@@ -90,10 +92,10 @@ export default function Login() {
         <View style={styles.header}>
           <Image
             source={require('@/assets/images/logo/Logo.png')}
-            style={styles.logoImage}
+            style={[styles.logoImage, { width: moderateScale(220), height: moderateScale(88) }]}
             resizeMode="contain"
           />
-          <ThemedText themeColor="textSecondary" style={styles.subtitle}>
+          <ThemedText themeColor="textSecondary" style={[styles.subtitle, { fontSize: moderateScale(14) }]}>
             {isLoginMode ? 'Sign in to manage invoices and payments' : 'Create an account to start billing clients'}
           </ThemedText>
         </View>

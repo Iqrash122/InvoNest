@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card';
 import { IncomeGoalProgressBar, OutstandingRatioChart } from '@/components/ui/charts';
 import { Spacing } from '@/constants/theme';
 import { useData } from '@/context/DataContext';
+import { useResponsive } from '@/hooks/use-responsive';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/hooks/use-theme';
@@ -47,6 +48,7 @@ export default function Dashboard() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const theme = useTheme();
+  const { moderateScale, isSmallDevice } = useResponsive();
   const { invoices, estimates, clients, payments, businessProfile, themeMode } = useData();
   const isDark = themeMode === 'dark';
 
@@ -99,17 +101,16 @@ export default function Dashboard() {
     <ThemedView style={[styles.container, { paddingTop }]}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
-        {/* Top Branding & Notifications Bar */}
         <View style={styles.headerRow}>
-          <View>
-            <ThemedText style={styles.businessName}>{businessProfile?.name || 'InvoNest'}</ThemedText>
+          <View style={{ flex: 1, marginRight: Spacing.two }}>
+            <ThemedText style={[styles.businessName, { fontSize: moderateScale(22) }]}>{businessProfile?.name || 'InvoNest'}</ThemedText>
             <ThemedText type="small" themeColor="textSecondary" style={styles.greetingText}>Welcome to your billing dashboard</ThemedText>
           </View>
           <TouchableOpacity
             onPress={() => router.push('/notifications')}
-            style={[styles.notificationBtn, { backgroundColor: theme.backgroundSelected }]}
+            style={[styles.notificationBtn, { backgroundColor: theme.backgroundSelected, width: moderateScale(40), height: moderateScale(40), borderRadius: moderateScale(20) }]}
           >
-            <Bell size={20} color={theme.text} />
+            <Bell size={moderateScale(20)} color={theme.text} />
           </TouchableOpacity>
         </View>
 
@@ -123,7 +124,7 @@ export default function Dashboard() {
           >
             <View style={styles.balanceHeader}>
               <Text style={styles.premiumBalanceLabel}>TOTAL OUTSTANDING</Text>
-              <Text style={styles.premiumBalanceAmount}>{formatCurrencyVal(totalOutstanding)}</Text>
+              <Text style={[styles.premiumBalanceAmount, { fontSize: moderateScale(36) }]}>{formatCurrencyVal(totalOutstanding)}</Text>
             </View>
             <View style={styles.premiumBalanceSplitRow}>
               <View style={styles.splitCol}>
@@ -142,31 +143,31 @@ export default function Dashboard() {
         {/* Quick Action Buttons Grid */}
         <View style={styles.actionGrid}>
           <Pressable style={styles.actionItem} onPress={() => router.push('/invoice/create')}>
-            <View style={[styles.actionIconContainer, { backgroundColor: isDark ? 'rgba(32, 138, 239, 0.15)' : '#E6F4FE' }]}>
-              <Receipt size={22} color="#208AEF" />
+            <View style={[styles.actionIconContainer, { backgroundColor: isDark ? 'rgba(32, 138, 239, 0.15)' : '#E6F4FE', width: moderateScale(50), height: moderateScale(50), borderRadius: moderateScale(25) }]}>
+              <Receipt size={moderateScale(22)} color="#208AEF" />
             </View>
-            <Text style={[styles.actionText, { color: theme.text }]}>+ Invoice</Text>
+            <Text style={[styles.actionText, { color: theme.text, fontSize: moderateScale(12) }]}>+ Invoice</Text>
           </Pressable>
 
           <Pressable style={styles.actionItem} onPress={() => router.push('/estimate/create')}>
-            <View style={[styles.actionIconContainer, { backgroundColor: isDark ? 'rgba(139, 92, 246, 0.15)' : '#F3E8FF' }]}>
-              <FileText size={22} color="#8B5CF6" />
+            <View style={[styles.actionIconContainer, { backgroundColor: isDark ? 'rgba(139, 92, 246, 0.15)' : '#F3E8FF', width: moderateScale(50), height: moderateScale(50), borderRadius: moderateScale(25) }]}>
+              <FileText size={moderateScale(22)} color="#8B5CF6" />
             </View>
-            <Text style={[styles.actionText, { color: theme.text }]}>+ Estimate</Text>
+            <Text style={[styles.actionText, { color: theme.text, fontSize: moderateScale(12) }]}>+ Estimate</Text>
           </Pressable>
 
           <Pressable style={styles.actionItem} onPress={() => router.push('/client/create')}>
-            <View style={[styles.actionIconContainer, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ECFDF5' }]}>
-              <UserPlus size={22} color="#10B981" />
+            <View style={[styles.actionIconContainer, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ECFDF5', width: moderateScale(50), height: moderateScale(50), borderRadius: moderateScale(25) }]}>
+              <UserPlus size={moderateScale(22)} color="#10B981" />
             </View>
-            <Text style={[styles.actionText, { color: theme.text }]}>+ Client</Text>
+            <Text style={[styles.actionText, { color: theme.text, fontSize: moderateScale(12) }]}>+ Client</Text>
           </Pressable>
 
           <Pressable style={styles.actionItem} onPress={() => router.push('/payment')}>
-            <View style={[styles.actionIconContainer, { backgroundColor: isDark ? 'rgba(249, 115, 22, 0.15)' : '#FFF7ED' }]}>
-              <DollarSign size={22} color="#F97316" />
+            <View style={[styles.actionIconContainer, { backgroundColor: isDark ? 'rgba(249, 115, 22, 0.15)' : '#FFF7ED', width: moderateScale(50), height: moderateScale(50), borderRadius: moderateScale(25) }]}>
+              <DollarSign size={moderateScale(22)} color="#F97316" />
             </View>
-            <Text style={[styles.actionText, { color: theme.text }]}>Payments</Text>
+            <Text style={[styles.actionText, { color: theme.text, fontSize: moderateScale(12) }]}>Payments</Text>
           </Pressable>
         </View>
 
@@ -270,13 +271,9 @@ const styles = StyleSheet.create({
     marginTop: Spacing.two,
   },
   businessName: {
-    fontSize: 22,
     fontWeight: '800',
   },
   notificationBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -318,6 +315,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.two,
     color: '#FFFFFF',
     letterSpacing: -0.5,
+    textAlign: 'center',
   },
   premiumBalanceSplitRow: {
     flexDirection: 'row',
@@ -365,6 +363,7 @@ const styles = StyleSheet.create({
   actionText: {
     fontSize: 12,
     fontWeight: '700',
+    textAlign: 'center',
   },
   chartsCard: {
     marginBottom: Spacing.four,

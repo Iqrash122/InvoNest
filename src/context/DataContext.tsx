@@ -525,6 +525,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setBusinessProfile(profile);
     await AsyncStorage.setItem(getNamespacedKey('@invonest_profile'), JSON.stringify(profile));
 
+    // Mark setup as completed so index.tsx can reliably route to dashboard
+    if (user) {
+      await AsyncStorage.setItem(`@invonest_setup_completed_${user.uid}`, 'true');
+    }
+
     if (isConfigured && db && user) {
       try {
         await setDoc(doc(db, `users/${user.uid}/profile/business`), sanitizeForFirestore(profile));

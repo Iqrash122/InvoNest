@@ -9,7 +9,10 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/images/logo/Logo.png",
-      "bundleIdentifier": "com.invonest.app"
+      "bundleIdentifier": "com.invonest.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.invonest.app",

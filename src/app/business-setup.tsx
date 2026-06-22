@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '@/hooks/use-theme';
+import { useResponsive } from '@/hooks/use-responsive';
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'INR', 'JPY', 'PKR'];
 const TEMPLATES: { id: 'classic' | 'modern' | 'minimal'; label: string }[] = [
@@ -28,6 +29,7 @@ export default function BusinessSetup() {
   const { user } = useAuth();
   const { saveBusinessProfile, businessProfile } = useData();
   const theme = useTheme();
+  const { moderateScale, isSmallDevice } = useResponsive();
 
   const [name, setName] = useState(businessProfile?.name && businessProfile.name !== 'My Business' ? businessProfile.name : '');
   const [email, setEmail] = useState(businessProfile?.email || user?.email || '');
@@ -120,10 +122,10 @@ export default function BusinessSetup() {
             <ArrowLeft size={24} color="#FFFFFF" />
           </TouchableOpacity>
         )}
-        <Building2 size={32} color="#FFFFFF" style={[styles.headerIcon, !router.canGoBack() && { alignSelf: 'center' }]} />
-        <View>
-          <ThemedText style={[styles.appTitle, { color: '#FFFFFF' }]}>Business Setup</ThemedText>
-          <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 13, marginTop: 2 }}>
+        <Building2 size={moderateScale(28)} color="#FFFFFF" style={[styles.headerIcon, !router.canGoBack() && { alignSelf: 'center' }]} />
+        <View style={{ flex: 1 }}>
+          <ThemedText style={[styles.appTitle, { color: '#FFFFFF', fontSize: moderateScale(20) }]}>Business Setup</ThemedText>
+          <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: moderateScale(12), marginTop: 2 }}>
             Company details and default settings
           </Text>
         </View>
